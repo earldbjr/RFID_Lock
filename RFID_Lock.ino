@@ -10,13 +10,15 @@ int greenLed1 = A5;//Door unlocked, Analog pin1.
 int reed = 8;
 int lockPin1 = 7;
 int lockPin2 = 6;
-String card1 = "2445113213";
+String card1 = "2454512237";
 String card2 = "2454512237";
 String card3 = "2454512237";
 String card4 = "2454512237";
 String card5 = "2454512237";
 String card6 = "2454512237";
-
+/*Blacklisted numbers:
+2445113213 Blank white card - Lost
+*/
 void setup() {
   //Serial.begin(9600);        // Initialize serial communications with the PC
   SPI.begin();                // Initialize SPI bus
@@ -96,47 +98,46 @@ void loop() {
 
   if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){
     unlockDoor();
-    //    while(digitalRead(reed) == 1){                         //Door unlocked, still closed.
-    //    }
-    //    while(digitalRead(reed) == 0){                         //Door unlocked, and opened.
-    //    }
-    //    while(digitalRead(reed) == 1){                            //Door now reading closed.
-    //      delay(3000);                                         //Wait 10 seconds, make sure user has time to close door fully.
-    //      if(digitalRead(reed)== 1){                           //Final check to make sure door is still closed.
-    //        lockDoor();
-    //      }
-    //    }
-    while(true){
-      int initialClosed = 0;
-      int intitialOpen = 0;
-      int reClosed = 0;
-      if(initialClosed == 0){
-        while(digitalRead(reed) == 1){
-          initialClosed = 1;
-        }
+    if(digitalRead(reed) == 1){
+      while(digitalRead(reed) == 1){
       }
-      if(initialOpen == 0){
-        while(digitalRead(reed) == 0){
-          initialOpen = 0;
-        }
+antibounce:
+      while(digitalRead(reed) == 0){
       }
-      if(reClosed == 0){
-        while(digitalRead(reed) == 1){
+      if(digitalRead(reed) == 1){
+        delay(100);
+        if(digitalRead(reed) == 1){
           delay(3000);
-          if(digitalRead(reed) == 1){
-            lockDoor();
-            reClosed = 1;
-          }
+          lockDoor();
         }
-      }
-      if(reClosed == 1){
-        return;
+        else{ 
+          goto antibounce; 
+        }
       }
     }
-
+    else {
+      antibounce2:
+      while(digitalRead(reed) == 0){
+      }
+      if(digitalRead(reed) == 1){
+        delay(100);
+        if(digitalRead(reed) == 1){
+          delay(3000);
+          lockDoor();  
+        } else{ goto antibounce2;}
+      }
+    }
   }
-  //Resetting RFID reader, and go back to waiting for card.
 }
+
+
+
+
+
+
+
+
+
 
 
 
