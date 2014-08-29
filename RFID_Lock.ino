@@ -7,7 +7,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);        // Create MFRC522 instance.
 
 int redLed1 = A4;//Door locked, Analog pin0.
 int greenLed1 = A5;//Door unlocked, Analog pin1.
-int reed = 8;
+int reed = 2;
 int lockPin1 = 7;
 int lockPin2 = 6;
 String card1 = "2454512237";
