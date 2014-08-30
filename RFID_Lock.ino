@@ -7,10 +7,10 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);        // Create MFRC522 instance.
 
 int redLed1 = A4;//Door locked, Analog pin0.
 int greenLed1 = A5;//Door unlocked, Analog pin1.
-int reed = 2;
+int doorSensor = 2;
 int lockPin1 = 7;
 int lockPin2 = 6;
-int safeToLock = 0;
+//boolean safeToLock = 0;
 String card1 = "2454512237";
 String card2 = "2454512237";
 String card3 = "2454512237";
@@ -20,11 +20,12 @@ String card6 = "2454512237";
 /*Blacklisted numbers:
  2445113213 Blank white card - Lost
  */
-void checkReed();
+void parseLock();
 void offLock();
 void unlockDoor();
 void lockDoor();
-void reedRising();
+void doorSensorDetect();
+
 void setup() {
   //Serial.begin(9600);        // Initialize serial communications with the PC
   SPI.begin();                // Initialize SPI bus
@@ -33,17 +34,15 @@ void setup() {
   pinMode(lockPin2, OUTPUT);
   pinMode(redLed1, OUTPUT);
   pinMode(greenLed1, OUTPUT);
-  pinMode(reed, INPUT);
-  attachInterrupt(0,reedRising, RISING); //  0=pin2, 1=pin3
+  pinMode(doorSensor, INPUT);
+  //attachInterrupt(0,doorSensorDetect,CHANGE); //  0=pin2, 1=pin3
 }
 
 void loop() {
-  checkReed();
   static int firstRun = 0;
-  if(firstRun == 0){ //On power on. If door is open, unlock. If door is closed, lock.
+  if(firstRun == 0){ 
     firstRun = 1;
     lockDoor();
-
   }
   // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
   MFRC522::MIFARE_Key key;
@@ -52,13 +51,11 @@ void loop() {
   }
   // Look for new cards
   if ( ! mfrc522.PICC_IsNewCardPresent()) {
-    checkReed();
     return;
   }
 
   // Select one of the cards
   if ( ! mfrc522.PICC_ReadCardSerial()) {
-    checkReed();
     return;
   }
   // Now a card is selected. The UID and SAK is in mfrc522.uid.
@@ -81,8 +78,8 @@ void loop() {
 
   if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){
     unlockDoor();
-
   }
+  checkDoorSensor();
 }
 
 void offLock(){
@@ -109,25 +106,34 @@ void lockDoor(){
   offLock();
 }
 
-void reedRising(){
-  7safeToLock = 1;
-}
+//void doorSensorDetect(){
+//safeToLock = digitalRead(doorSensor);
+//}
 
-void checkReed(){
-  if(safeToLock == 1){
+void checkDoorSensor(){
+  while(digitalRead(doorSensor) == 0){
+    //There's nothing to do until the door is closed...
+  }
+  static int isLocked = false; //Analagous to "lock state".
+  if(digitalRead(doorSensor) == 1 && isLocked !=1){  //If door is closed(guaranteed, but checked for sanity), and door wasn't locked last iteration
     int time = millis();
-    int safe = 1;
-    while(millis()-time <= 2000){
-      if(digitalRead(reed) == 0){
-        safe = 0;
+    boolean safe = true;
+    while(millis()-time <= 2000){ //Test for two seconds.
+      if(digitalRead(doorSensor) == 0){ //If door reads open during two seconds...
+        safe = false;             //evaluate false
       }
     }
-    if(safe == 1){
-      safeToLock = 0;
-      lockDoor();
+    if(safe == true){             //If test succeeded
+      isLocked = true;       //If test didn't evaluate false (door measured closed for 2 seconds)
+      lockDoor();                 //Lock the door.
+    } 
+    else if (safe == false){    //If door read open during the two seconds...
+      isLocked = false;           //Set result to failed, to indicate test unsuccessful, and that it's ok to test again next iteration.
     }
   }
 }
+
+
 
 
 
