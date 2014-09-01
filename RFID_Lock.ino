@@ -20,7 +20,6 @@ String card6 = "2454512237";
 /*Blacklisted numbers:
  2445113213 Blank white card - Lost
  */
-void parseLock();
 void offLock();
 void unlockDoor();
 void lockDoor();
