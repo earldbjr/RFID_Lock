@@ -5,9 +5,10 @@
 #define RST_PIN 9
 MFRC522 mfrc522(SS_PIN, RST_PIN);        // Create MFRC522 instance.
 
+int isLocked = 0;
 int redLed1 = A4;//Door locked, Analog pin0.
 int greenLed1 = A5;//Door unlocked, Analog pin1.
-int reed = 2;
+int doorSensor = 2;
 int lockPin1 = 7;
 int lockPin2 = 6;
 String card1 = "2454512237";
@@ -17,17 +18,43 @@ String card4 = "2454512237";
 String card5 = "2454512237";
 String card6 = "2454512237";
 /*Blacklisted numbers:
-2445113213 Blank white card - Lost
-*/
+ 2445113213 Blank white card - Lost
+ */
+void parseLock();
+void offLock();
+void unlockDoor();
+void lockDoor();
+
 void setup() {
-  //Serial.begin(9600);        // Initialize serial communications with the PC
   SPI.begin();                // Initialize SPI bus
   mfrc522.PCD_Init();        // Initialize MFRC522 card
   pinMode(lockPin1, OUTPUT);
   pinMode(lockPin2, OUTPUT);
   pinMode(redLed1, OUTPUT);
   pinMode(greenLed1, OUTPUT);
-  pinMode(reed, INPUT);
+  pinMode(doorSensor, INPUT);
+}
+
+void loop() {
+  String idRead;
+  // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
+  MFRC522::MIFARE_Key key;
+  for (byte i = 0; i < 6; i++) {
+    key.keyByte[i] = 0xFF;
+  }
+  // New card found && new card selected
+  if ( mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()){
+    for (byte i = 0; i < mfrc522.uid.size; i++) { // Dump UID for authentication
+      idRead.concat(mfrc522.uid.uidByte[i]);
+    }
+    if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){ //Authenticate
+      if(isLocked == 1){
+        unlockDoor();
+      }
+    }
+  }
+
+  checkDoorSensor();
 }
 
 void offLock(){
@@ -41,6 +68,7 @@ void unlockDoor(){
   digitalWrite(lockPin2, HIGH);
   digitalWrite(redLed1, LOW);
   digitalWrite(greenLed1, HIGH);
+  isLocked = 0;
   delay(1000); //Allow motor to engage.
   offLock();
 }
@@ -50,18 +78,19 @@ void lockDoor(){
   digitalWrite(lockPin2, LOW);
   digitalWrite(redLed1, HIGH);
   digitalWrite(greenLed1, LOW);
+  isLocked = 1;
   delay(1000); //Allow motor to engage.
   offLock();
 }
 
-
-
-void loop() {
-  static int firstRun = 0;
-  if(firstRun == 0){ //On power on. If door is open, unlock. If door is closed, lock.
-    firstRun = 1;
-    lockDoor();
-    digitalWrite(redLed1, HIGH);
+void checkDoorSensor(){
+  int safe = 1;
+  static int named = 0;
+  int sensorReading = digitalRead(doorSensor);
+  if(sensorReading == 0){
+    isLocked = 0;
+    named = 0;
+    digitalWrite(redLed1, LOW);
     digitalWrite(greenLed1, HIGH);
   } 
   // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
@@ -69,84 +98,22 @@ void loop() {
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
-  // Look for new cards
-  if ( ! mfrc522.PICC_IsNewCardPresent()) {
-    return;
-  }
+  else if (sensorReading == 1 && isLocked == 0 && named == 0){  //If door is closed(guaranteed, but checked for sanity), and door wasn't locked last iteration
 
-  // Select one of the cards
-  if ( ! mfrc522.PICC_ReadCardSerial()) {
-    return;
-  }
-  // Now a card is selected. The UID and SAK is in mfrc522.uid.
-
-  // Dump UID
-  //Serial.print("Card UID:");
-  String idRead;
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    //Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    //Serial.print(mfrc522.uid.uidByte[i]);//, HEX);
-    //idRead.concat(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    idRead.concat(mfrc522.uid.uidByte[i]);
-  } 
-  //Serial.print(idRead);
-  //Serial.println();
-  //if (idRead == officeCard) {
-  //    digitalWrite(redLed1, HIGH);
-  //    digitalWrite(greenLed1, HIGH);
-  //}
-
-  if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){
-    unlockDoor();
-    if(digitalRead(reed) == 1){
-      while(digitalRead(reed) == 1){
-      }
-antibounce:
-      while(digitalRead(reed) == 0){
-      }
-      if(digitalRead(reed) == 1){
-        delay(100);
-        if(digitalRead(reed) == 1){
-          delay(3000);
-          lockDoor();
-        }
-        else{ 
-          goto antibounce; 
-        }
+    unsigned long time = millis();
+    while(millis()-time <= 2000){ //Test for two seconds.
+      if(digitalRead(doorSensor) == 0){ //If door reads open during two seconds...
+        isLocked = 0;       //door must be unlocked if open
+        safe = 0;
       }
     }
-    else {
-      antibounce2:
-      while(digitalRead(reed) == 0){
-      }
-      if(digitalRead(reed) == 1){
-        delay(100);
-        if(digitalRead(reed) == 1){
-          delay(3000);
-          lockDoor();  
-        } else{ goto antibounce2;}
-      }
+    if(safe == 1){
+      lockDoor();             //Lock the door. 
+      named = 1;
     }
+  }
+  else {    //Just to document if Reading == 1, isLocked == 1;
+
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
