@@ -5,6 +5,7 @@
 #define RST_PIN 9
 MFRC522 mfrc522(SS_PIN, RST_PIN);        // Create MFRC522 instance.
 
+int isLocked = 0;
 int redLed1 = A4;//Door locked, Analog pin0.
 int greenLed1 = A5;//Door unlocked, Analog pin1.
 int doorSensor = 2;
@@ -24,10 +25,8 @@ void parseLock();
 void offLock();
 void unlockDoor();
 void lockDoor();
-void doorSensorDetect();
 
 void setup() {
-  //Serial.begin(9600);        // Initialize serial communications with the PC
   SPI.begin();                // Initialize SPI bus
   mfrc522.PCD_Init();        // Initialize MFRC522 card
   pinMode(lockPin1, OUTPUT);
@@ -35,50 +34,27 @@ void setup() {
   pinMode(redLed1, OUTPUT);
   pinMode(greenLed1, OUTPUT);
   pinMode(doorSensor, INPUT);
-  //attachInterrupt(0,doorSensorDetect,CHANGE); //  0=pin2, 1=pin3
 }
 
 void loop() {
-  static int firstRun = 0;
-  if(firstRun == 0){ 
-    firstRun = 1;
-    lockDoor();
-  }
+  String idRead;
   // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
   MFRC522::MIFARE_Key key;
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
-  // Look for new cards
-  if ( ! mfrc522.PICC_IsNewCardPresent()) {
-    return;
+  // New card found && new card selected
+  if ( mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()){
+    for (byte i = 0; i < mfrc522.uid.size; i++) { // Dump UID for authentication
+      idRead.concat(mfrc522.uid.uidByte[i]);
+    }
+    if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){ //Authenticate
+      if(isLocked == 1){
+        unlockDoor();
+      }
+    }
   }
 
-  // Select one of the cards
-  if ( ! mfrc522.PICC_ReadCardSerial()) {
-    return;
-  }
-  // Now a card is selected. The UID and SAK is in mfrc522.uid.
-
-  // Dump UID
-  //Serial.print("Card UID:");
-  String idRead;
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    //Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    //Serial.print(mfrc522.uid.uidByte[i]);//, HEX);
-    //idRead.concat(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    idRead.concat(mfrc522.uid.uidByte[i]);
-  } 
-  //Serial.print(idRead);
-  //Serial.println();
-  //if (idRead == officeCard) {
-  //    digitalWrite(redLed1, HIGH);
-  //    digitalWrite(greenLed1, HIGH);
-  //}
-
-  if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){
-    unlockDoor();
-  }
   checkDoorSensor();
 }
 
@@ -93,6 +69,7 @@ void unlockDoor(){
   digitalWrite(lockPin2, HIGH);
   digitalWrite(redLed1, LOW);
   digitalWrite(greenLed1, HIGH);
+  isLocked = 0;
   delay(1000); //Allow motor to engage.
   offLock();
 }
@@ -102,6 +79,7 @@ void lockDoor(){
   digitalWrite(lockPin2, LOW);
   digitalWrite(redLed1, HIGH);
   digitalWrite(greenLed1, LOW);
+  isLocked = 1;
   delay(1000); //Allow motor to engage.
   offLock();
 }
@@ -111,29 +89,31 @@ void lockDoor(){
 //}
 
 void checkDoorSensor(){
-  while(digitalRead(doorSensor) == 0){
-    //There's nothing to do until the door is closed...
+  int safe = 1;
+  static int named = 0;
+  int sensorReading = digitalRead(doorSensor);
+  if(sensorReading == 0){
+    isLocked = 0;
+    named = 0;
+    digitalWrite(redLed1, LOW);
+    digitalWrite(greenLed1, HIGH);
   }
-  static int isLocked = false; //Analagous to "lock state".
-  if(digitalRead(doorSensor) == 1 && isLocked !=1){  //If door is closed(guaranteed, but checked for sanity), and door wasn't locked last iteration
-    int time = millis();
-    boolean safe = true;
+  else if (sensorReading == 1 && isLocked == 0 && named == 0){  //If door is closed(guaranteed, but checked for sanity), and door wasn't locked last iteration
+
+    unsigned long time = millis();
     while(millis()-time <= 2000){ //Test for two seconds.
       if(digitalRead(doorSensor) == 0){ //If door reads open during two seconds...
-        safe = false;             //evaluate false
+        isLocked = 0;       //door must be unlocked if open
+        safe = 0;
       }
     }
-    if(safe == true){             //If test succeeded
-      isLocked = true;       //If test didn't evaluate false (door measured closed for 2 seconds)
-      lockDoor();                 //Lock the door.
-    } 
-    else if (safe == false){    //If door read open during the two seconds...
-      isLocked = false;           //Set result to failed, to indicate test unsuccessful, and that it's ok to test again next iteration.
+    if(safe == 1){
+      lockDoor();             //Lock the door. 
+      named = 1;
     }
   }
+  else {    //Just to document if Reading == 1, isLocked == 1;
+
+  }
 }
-
-
-
-
 
