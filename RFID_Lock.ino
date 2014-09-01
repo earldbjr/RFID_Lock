@@ -92,11 +92,6 @@ void checkDoorSensor(){
     named = 0;
     digitalWrite(redLed1, LOW);
     digitalWrite(greenLed1, HIGH);
-  } 
-  // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
-  MFRC522::MIFARE_Key key;
-  for (byte i = 0; i < 6; i++) {
-    key.keyByte[i] = 0xFF;
   }
   else if (sensorReading == 1 && isLocked == 0 && named == 0){  //If door is closed(guaranteed, but checked for sanity), and door wasn't locked last iteration
 
