@@ -11,11 +11,11 @@ int greenLed1 = A5;//Door unlocked, Analog pin1.
 int doorSensor = 2;
 int lockPin1 = 7;
 int lockPin2 = 6;
-String card1 = "2454512237";
-String card2 = "2454512237";
-String card3 = "2454512237";
-String card4 = "2454512237";
-String card5 = "2454512237";
+String card1 = "2454512237";   //Given to Sun Bay office
+String card2 = "461691025450129";  //Gizmo's Phone
+String card3 = "451661025450129"; //Zahrah's Phone
+String card4 = "421631025450129";  //Zahrah's Purse?
+String card5 = "4121661025450129";   //Gizmo's Wallet
 String card6 = "2454512237";
 /*Blacklisted numbers:
  2445113213 Blank white card - Lost
