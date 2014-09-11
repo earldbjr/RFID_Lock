@@ -11,18 +11,24 @@ int greenLed1 = A5;//Door unlocked, Analog pin1.
 int doorSensor = 2;
 int lockPin1 = 7;
 int lockPin2 = 6;
+char* Cards[]= "2454512237", "461691025450129", "451661025450129", "421631025450129", "4121661025450129" //To be implemented: Read long string from EEPROM, tokenize string to fill this var.
+/*
 String card1 = "2454512237";   //Given to Sun Bay office
-String card2 = "461691025450129";  //Gizmo's Phone
-String card3 = "451661025450129"; //Zahrah's Phone
-String card4 = "421631025450129";  //Zahrah's Purse?
-String card5 = "4121661025450129";   //Gizmo's Wallet
-String card6 = "2454512237";
-/*Blacklisted numbers:
+ String card2 = "461691025450129";  //Gizmo's Phone
+ String card3 = "451661025450129"; //Zahrah's Phone
+ String card4 = "421631025450129";  //Zahrah's Purse?
+ String card5 = "4121661025450129";   //Gizmo's Wallet
+ Blacklisted numbers:
  2445113213 Blank white card - Lost
  */
+int intISR = 0;
+
 void offLock();
 void unlockDoor();
 void lockDoor();
+string readCard();
+void reProgramISR();
+void Reprogram();
 
 void setup() {
   SPI.begin();                // Initialize SPI bus
@@ -32,28 +38,35 @@ void setup() {
   pinMode(redLed1, OUTPUT);
   pinMode(greenLed1, OUTPUT);
   pinMode(doorSensor, INPUT);
+  attachInterrupt(0, reProgramISR, CHANGE); //0?
 }
 
 void loop() {
-  String idRead;
-  // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
-  MFRC522::MIFARE_Key key;
-  for (byte i = 0; i < 6; i++) {
-    key.keyByte[i] = 0xFF;
-  }
-  // New card found && new card selected
-  if ( mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()){
-    for (byte i = 0; i < mfrc522.uid.size; i++) { // Dump UID for authentication
-      idRead.concat(mfrc522.uid.uidByte[i]);
+  if(intISR == 1){
+    int sentinel = 1;
+    unsigned long time = millis();
+    while(millis()-time <= 200){
+      if(digitalRead(6) == 0){
+        sentinel = 0;
+      }
     }
-    if (idRead == card1 || idRead == card2 || idRead == card3 || idRead == card4 || idRead == card5 || idRead == card6){ //Authenticate
-      if(isLocked == 1){
-        unlockDoor();
+    if(sentinel == 1){
+      Reprogram();
+      intISR = 0;
+    }
+
+  }
+  checkForCard();
+  string cardNumber = checkDoorSensor();
+  if(cardNumber != "invalid"){
+    for(int i=0; i<5; i++){
+      if(cardNumber == Cards[i]){
+        if(isLocked == 1){
+          unlockDoor();
+        }
       }
     }
   }
-
-  checkDoorSensor();
 }
 
 void offLock(){
@@ -110,4 +123,36 @@ void checkDoorSensor(){
 
   }
 }
+
+string readCard(){
+  String idRead == "invalid";
+
+  // New card found && new card selected
+  if ( mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()){
+    for (byte i = 0; i < mfrc522.uid.size; i++) { // Dump UID for authentication
+      idRead.concat(mfrc522.uid.uidByte[i]);
+    }
+    return(idRead);
+  }
+}
+
+void reProgramISR(){
+  if(digitalRead(6) == HIGH){
+    int intISR = 1;
+  }
+  else{
+    intISR = 0;
+  }
+}
+
+void Reprogram(){
+  while(intISR == 1){
+    //While is to catch release of reprogram button.
+    //Do stuff here.
+  }
+}
+
+
+
+
 
