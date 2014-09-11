@@ -8,7 +8,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);        // Create MFRC522 instance.
 int isLocked = 0;
 int redLed1 = A4;//Door locked, Analog pin0.
 int greenLed1 = A5;//Door unlocked, Analog pin1.
-int doorSensor = 2;
+int doorClosed = 2;
 int lockPin1 = 7;
 int lockPin2 = 6;
 String card1 = "2454512237";   //Given to Sun Bay office
@@ -23,7 +23,7 @@ String card6 = "2454512237";
 void offLock();
 void unlockDoor();
 void lockDoor();
-
+void timeoutTimer();
 void setup() {
   SPI.begin();                // Initialize SPI bus
   mfrc522.PCD_Init();        // Initialize MFRC522 card
@@ -31,7 +31,7 @@ void setup() {
   pinMode(lockPin2, OUTPUT);
   pinMode(redLed1, OUTPUT);
   pinMode(greenLed1, OUTPUT);
-  pinMode(doorSensor, INPUT);
+  pinMode(doorClosed, INPUT);
 }
 
 void loop() {
@@ -53,7 +53,8 @@ void loop() {
     }
   }
 
-  checkDoorSensor();
+  checkdoorClosed();
+  timeoutTimer();
 }
 
 void offLock(){
@@ -82,10 +83,10 @@ void lockDoor(){
   offLock();
 }
 
-void checkDoorSensor(){
+void checkdoorClosed(){
   int safe = 1;
   static int named = 0;
-  int sensorReading = digitalRead(doorSensor);
+  int sensorReading = digitalRead(doorClosed);
   if(sensorReading == 0){
     isLocked = 0;
     named = 0;
@@ -96,7 +97,7 @@ void checkDoorSensor(){
 
     unsigned long time = millis();
     while(millis()-time <= 2000){ //Test for two seconds.
-      if(digitalRead(doorSensor) == 0){ //If door reads open during two seconds...
+      if(digitalRead(doorClosed) == 0){ //If door reads open during two seconds...
         isLocked = 0;       //door must be unlocked if open
         safe = 0;
       }
@@ -110,4 +111,22 @@ void checkDoorSensor(){
 
   }
 }
+
+void timeoutTimer(){
+  signed static long oldTime = millis();
+  if(isLocked == 1 || digitalRead(doorClosed) == 0){
+    oldTime = -1; //lockout this function
+    return;
+  }
+  if(oldTime == -1){ //Implies door is unlocked
+    oldTime = millis(); //Start the clock
+  }
+  if(millis()-oldTime >= 10000){ //If door has been unlocked for greater than 10 seconds, but not opened...
+    lockDoor();
+    oldTime = -1; //lockout this function until door is closed but unlocked.
+  }
+}
+
+
+
 
